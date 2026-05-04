@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Verification Script for Bartender Fixes
+# Verification Script for Bartender Fixes #15
 # Tests inventory context injection and UI scrolling fixes
 
 echo "=========================================="
@@ -14,7 +14,7 @@ BARTENDER_DIR="/home/ubuntu/.openclaw/workspace/ai-bartender"
 echo "✅ Test 1: Inventory File Loadable"
 if [ -f "$BARTENDER_DIR/inventory.json" ]; then
     echo "   ✓ inventory.json exists"
-    INVENTORY_COUNT=$(cat "$BARTENDER_DIR/inventory.json" | grep -c '"name"')
+    INVENTORY_COUNT=$(grep -c '"name"' "$BARTENDER_DIR/inventory.json")
     echo "   ✓ Found $INVENTORY_COUNT items in inventory"
 else
     echo "   ✗ inventory.json not found"
@@ -52,18 +52,21 @@ echo ""
 # Test 4: List current inventory
 echo "✅ Test 4: Current Inventory Contents"
 echo "   Items in inventory:"
-cat "$BARTENDER_DIR/inventory.json" | jq -r '.[] | "• \(.name): \(.quantity) \(.unit) - \(.description)"' || true
+if command -v jq &> /dev/null; then
+    cat "$BARTENDER_DIR/inventory.json" | jq -r '.[] | "• \(.name): \(.quantity) \(.unit) - \(.description)"' || true
+else
+    echo "   (jq not available, skipping JSON pretty print)"
+fi
 echo ""
 
-# Test 5: Build and test API endpoint (requires port check first)
-echo "✅ Test 5: API Endpoint Check"
-if command -v curl &> /dev/null; then
-    echo "   📍 To test API endpoint, run:"
-    echo "      cd $BARTENDER_DIR && npm run dev"
-    echo "   Then POST to http://localhost:3000/api/chat with JSON:"
-    echo "      {"$
-        "$message":\"What can you make?\""
-    "}"}
+# Test 5: Verify git status is clean
+echo "✅ Test 5: Repository Status"
+cd "$BARTENDER_DIR"
+if [ -n "$(git status --porcelain)" ]; then
+    echo "   ⚠️ Git has uncommitted changes:"
+    git status --short
+else
+    echo "   ✓ Repository is clean and ready for deployment"
 fi
 echo ""
 
