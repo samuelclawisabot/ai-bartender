@@ -112,8 +112,8 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Messages Area - Fixed height with scroll for long conversations */}
+        <div className="flex-1 max-h-[60vh] overflow-y-auto overflow-x-hidden p-6 space-y-4"/>
           {messages.map((msg) => (
             <div
               key={msg.id}

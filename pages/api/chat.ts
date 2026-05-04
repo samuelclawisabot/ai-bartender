@@ -1,4 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import fs from 'fs'
+import path from 'path'
 
 type Data = {
   success: boolean
@@ -10,6 +12,10 @@ interface InventoryItem {
   description?: string
   quantity: number
   unit: string
+}
+
+const getInventoryPath = () => {
+  return path.join(process.cwd(), 'inventory.json')
 }
 
 const STANDARD_KIT = [
@@ -86,7 +92,39 @@ export default async function handler(
   }
 
   try {
-    const { message, mode = 'strict', inventory = [] as InventoryItem[] } = req.body
+    const { message, mode = 'strict', inventory: inventoryFromRequest = [] as InventoryItem[] } = req.body
+    
+    // Load inventory from file (takes priority over request body)
+    let inventory: InventoryItem[] = []
+    let inventoryPath = getInventoryPath()
+    
+    try {
+      if (fs.existsSync(inventoryPath)) {
+        const inventoryContent = fs.readFileSync(inventoryPath, 'utf8')
+        inventory = JSON.parse(inventoryContent)
+      }
+    } catch (e) {
+      console.warn('Could not load inventory from file:', e)
+    }
+
+    // Fallback to localStorage for backward compatibility (client-side usage)
+    if (!inventory.length && process.env.NODE_ENV === 'development') {
+      try {
+        const storedInventory = typeof window !== 'undefined' 
+          ? localStorage.getItem('bartenderInventory')
+          : null
+        if (storedInventory) {
+          inventory = JSON.parse(storedInventory)
+        }
+      } catch (e) {
+        console.warn('Could not load from localStorage:', e)
+      }
+    }
+
+    // If still empty, use request body or empty array
+    if (!inventory.length && inventoryFromRequest.length) {
+      inventory = inventoryFromRequest
+    }
 
     if (!message) {
       return res.status(400).json({ 
@@ -123,15 +161,36 @@ export default async function handler(
         return res.status(200).json({ success: true, message: msg })
       }
 
-      const available = inventory.slice(0, 3).map((item: InventoryItem) => item.name).join(', ')
+      const available = inventory.length > 0 
+        ? inventory.slice(0, 3).map((item: InventoryItem) => `${item.name}: ${item.quantity} ${item.unit}`).join(', ')
+        : 'empty'
       const mockResponse = mode === 'strict' 
         ? `🍸 *Speakeasy Selection*\n\nBased on our current inventory: ${available}\n\n**I've curated a few options for you:**\n\n1. *Something Classic* - Using our house spirits and mixers\n2. *Citrus Splash* - If we have citrus available\n3. *Smooth & Clean* - Our signature highball option\n\n*What would you like to explore first?*`
         : `🍸 *Speakeasy Adventures*\n\n**From Our Bar:**\n- Classic cocktails with what we have\n\n**Missing Item Adventures:**\n*(I can suggest some amazing drinks if we grab these 1-2 items)*\n- A proper martini (needs vermouth)\n- Old fashioned (needs bitters)\n\n*Let me know what you'd like to try!*`
       
       return res.status(200).json({ success: true, message: mockResponse })
+      
+      return res.status(200).json({ success: true, message: mockResponse })
     }
 
-    const systemMode = mode === 'strict' ? createStrictPrompt(inventory, message) : createDiscoveryPrompt(inventory, message)
+    // Build inventory string that will be injected into the system prompt
+    let inventoryContext = ''
+    if (inventory.length === 0) {
+      inventoryContext = '\n⚠️ No items currently in inventory. Please add spirits, bitters, chasers via /inventory page before asking for cocktail suggestions.'
+    } else {
+      const inventoryLines = inventory.map((item: InventoryItem) => 
+        `• ${item.name}: ${item.quantity} ${item.unit} - ${item.description || 'Premium quality spirit'}
+`
+      ).join('\n')
+      inventoryContext = `\n=== CURRENT USER INVENTORY ===\n${inventoryLines}`
+    }
+
+    const systemMode = mode === 'strict' 
+      ? createStrictPrompt(inventory, message) 
+      : createDiscoveryPrompt(inventory, message)
+
+    // Append inventory context to the system prompt
+    const fullSystemPrompt = `${systemMode}\n\n${inventoryContext}`
 
     // Gemini API call - Using gemini-3-flash-preview (available model in v1beta)
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`
@@ -144,7 +203,7 @@ export default async function handler(
       body: JSON.stringify({
         contents: [{
           role: 'user',
-          parts: [{ text: systemMode }]
+          parts: [{ text: fullSystemPrompt }]
         }]
       })
     })
@@ -173,4 +232,36 @@ export default async function handler(
       message: 'Internal server error. Please try again.' 
     })
   }
+}
+
+// Load inventory from file (server-only helper)
+export async function loadInventory(): Promise<InventoryItem[]> {
+  const inventoryPath = getInventoryPath()
+  try {
+    if (fs.existsSync(inventoryPath)) {
+      const inventoryContent = fs.readFileSync(inventoryPath, 'utf8')
+      return JSON.parse(inventoryContent)
+    }
+  } catch (e) {
+    console.warn('Could not load inventory from file:', e)
+  }
+  return []
+}
+
+export async function listCurrentInventory(): Promise<InventoryItem[]> {
+  // This function is specifically for listing items when user asks "show me inventory"
+  const inventory = await loadInventory()
+  if (inventory.length === 0) {
+    try {
+      const storedInventory = typeof window !== 'undefined' 
+        ? localStorage.getItem('bartenderInventory')
+        : null
+      if (storedInventory) {
+        return JSON.parse(storedInventory)
+      }
+    } catch (e) {
+      console.warn('Could not load from localStorage:', e)
+    }
+  }
+  return inventory
 }
