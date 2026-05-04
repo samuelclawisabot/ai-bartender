@@ -20,8 +20,7 @@ const STANDARD_KIT = [
 ]
 
 const createStrictPrompt = (inventory: InventoryItem[], userMessage: string) => {
-  const inventoryString = `Available Inventory:
-${inventory.map((item: InventoryItem) => `- ${item.name}: ${item.quantity} ${item.unit}`).join('\n')}`
+  const inventoryString = `Available Inventory:\n${inventory.map((item: InventoryItem) => `- ${item.name}: ${item.quantity} ${item.unit}`).join('\n')}`
   
   return `You are an elite AI mixologist working at Speakeasy Noir bar. You MUST only use items from the Available Inventory above to suggest drinks.
 
@@ -134,8 +133,8 @@ export default async function handler(
 
     const systemMode = mode === 'strict' ? createStrictPrompt(inventory, message) : createDiscoveryPrompt(inventory, message)
 
-    // Gemini API call
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash:generateContent?key=${GEMINI_API_KEY}`
+    // Gemini API call - Using gemini-2.0-flash (available model in v1beta)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
     
     const response = await fetch(url, {
       method: 'POST',
