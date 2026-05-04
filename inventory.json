@@ -1,0 +1,8 @@
+[
+  { "name": "Whiskey", "description": "Bourbon or Rye, aged in oak barrels", "quantity": 750, "unit": "ml" },
+  { "name": "Vodka", "description": "Premium vodka for clean sips", "quantity": 750, "unit": "ml" },
+  { "name": "Gin", "description": "London dry gin with botanical notes", "quantity": 750, "unit": "ml" },
+  { "name": "Tequila", "description": "100% agave blanco tequila", "quantity": 750, "unit": "ml" },
+  { "name": "Rum", "description": "Golden rum with vanilla notes", "quantity": 750, "unit": "ml" },
+  { "name": "Brandy", "description": "Cognac-style brandy", "quantity": 375, "unit": "ml" }
+]
