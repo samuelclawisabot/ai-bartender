@@ -1,17 +1,40 @@
 import { useState, useEffect } from 'react'
 
-export default function Chat() {
-  const [messages, setMessages] = useState<any[]>([])
-  const [inputText, setInputText] = useState('')
-  const [mode, setMode] = useState<'strict' | 'discovery'>('strict')
-  const [loading, setLoading] = useState(false)
+interface ChatProps {
+  activeTab: string
+}
 
+type Category = 'spirits' | 'liqueurs' | 'mixers' | 'garnishes'
+
+interface ItemType {
+  id: number
+  name: string
+  description?: string
+  quantity: number
+  unit: string
+  category?: Category
+}
+
+export default function Chat({ activeTab }: ChatProps) {
+  const [messages, setMessages] = useState<any[]>([])
+
+  // Load initial messages from session storage (persists across navigation)
   useEffect(() => {
-    // Load initial messages if needed
-    const stored = localStorage.getItem('bartenderMessages')
-    if (stored) {
-      setMessages(JSON.parse(stored))
-    } else {
+    try {
+      const stored = sessionStorage.getItem('bartenderMessages')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        setMessages(parsed)
+      } else {
+        setMessages([{
+          id: Date.now(),
+          role: 'assistant',
+          text: "🍸 *Welcome to Speakeasy*, I'm your AI mixologist.\n\nI can suggest cocktails based on what's in our bar.\n\n*Current Mode*: **Strict** (I'll only use what we have)\n\nType a drink idea or ask for suggestions!",
+          timestamp: new Date().toISOString()
+        }])
+      }
+    } catch (e) {
+      console.error('Failed to load messages:', e)
       setMessages([{
         id: Date.now(),
         role: 'assistant',
@@ -19,10 +42,17 @@ export default function Chat() {
         timestamp: new Date().toISOString()
       }])
     }
-  }, [])
+  }, [activeTab])
+  const [inputText, setInputText] = useState('')
+  const [mode, setMode] = useState<'strict' | 'discovery'>('strict')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    localStorage.setItem('bartenderMessages', JSON.stringify(messages))
+    try {
+      sessionStorage.setItem('bartenderMessages', JSON.stringify(messages))
+    } catch (e) {
+      console.warn('Could not persist messages:', e)
+    }
   }, [messages])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,15 +70,15 @@ export default function Chat() {
     setInputText('')
     setLoading(true)
 
-    // Load inventory from localStorage (simpler than file system in client-side)
-    let inventory = []
+    // Load inventory from session storage (persists across navigation)
+    let inventory: ItemType[] = []
     try {
-      const storedInventory = localStorage.getItem('bartenderInventory')
+      const storedInventory = sessionStorage.getItem('bartenderInventory')
       if (storedInventory) {
         inventory = JSON.parse(storedInventory)
       }
     } catch (e) {
-      console.warn('Could not load inventory from localStorage:', e)
+      console.warn('Could not load inventory from session storage:', e)
     }
 
     // Call the API
@@ -81,13 +111,16 @@ export default function Chat() {
 
   return (
     <div className="min-h-screen bg-noir-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl h-[90vh] bg-noir-800/50 backdrop-blur-xl rounded-3xl border border-neon-purple/20 overflow-hidden shadow-2xl">
+      <div className="w-full max-w-4xl h-[90vh] bg-noir-800/50 backdrop-blur-xl rounded-3xl border border-neon-purple/20 overflow-hidden shadow-2xl flex flex-col">
         
-        {/* Header */}
-        <div className="bg-gradient-to-r from-noir-900 via-noir-800 to-noir-900 p-6 border-b border-neon-purple/10">
-          <h1 className="text-3xl font-light tracking-wider text-white mb-2">
-            🍸 Speakeasy <span className="font-mono text-neon-cyan/80">N O I R</span>
-          </h1>
+        {/* Header with Mode Toggle */}
+        <div className="bg-gradient-to-r from-noir-900 via-noir-800 to-noir-900 p-6 border-b border-neon-purple/10 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-light tracking-wider text-white mb-2">
+              🍸 Speakeasy <span className="font-mono text-neon-cyan/80">N O I R</span>
+            </h1>
+            <p className="text-gray-400 text-sm">AI Mixologist Chat</p>
+          </div>
           <div className="flex gap-4">
             <button 
               onClick={() => setMode('strict')}
@@ -113,7 +146,7 @@ export default function Chat() {
         </div>
 
         {/* Messages Area - Fixed height with scroll for long conversations */}
-        <div className="flex-1 max-h-[60vh] overflow-y-auto overflow-x-hidden p-6 space-y-4">
+        <div className="flex-1 max-h-[55vh] overflow-y-auto overflow-x-hidden p-6 space-y-4">
           {messages.map((msg) => (
             <div
               key={msg.id}

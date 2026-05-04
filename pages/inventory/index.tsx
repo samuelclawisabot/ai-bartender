@@ -9,47 +9,30 @@ interface ItemType {
   description?: string
   quantity: number
   unit: string
+  category?: Category
 }
 
 const categories: Category[] = ['spirits', 'liqueurs', 'mixers', 'garnishes']
 
-export default function Inventory() {
-  const [activeCategory, setActiveCategory] = useState<Category>('spirits')
-  const [items, setItems] = useState<ItemType[]>([])
-  const [editingId, setEditingId] = useState<number | null>(null)
+const categoryNames: Record<Category, { label: string; icon: string }> = {
+  spirits: { label: 'Spirits', icon: '🥃' },
+  liqueurs: { label: 'Liqueurs', icon: '🍋' },
+  mixers: { label: 'Mixers', icon: '🧊' },
+  garnishes: { label: 'Garnishes', icon: '🌿' }
+}
+
+interface AddItemFormProps {
+  onAddItem: (item: ItemType) => void
+}
+
+export function AddItemForm({ onAddItem }: AddItemFormProps) {
   const [newItemName, setNewItemName] = useState('')
   const [newItemDesc, setNewItemDesc] = useState('')
   const [quantityInput, setQuantityInput] = useState('')
+  const [category, setCategory] = useState<Category>('spirits')
 
-  useEffect(() => {
-    // Load from localStorage or use empty array
-    const stored = localStorage.getItem('bartenderInventory')
-    if (stored) {
-      try {
-        const parsed: ItemType[] = JSON.parse(stored)
-        setItems(parsed)
-      } catch (e) {
-        console.error('Failed to parse inventory:', e)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (items.length > 0) {
-      localStorage.setItem('bartenderInventory', JSON.stringify(items))
-    }
-  }, [items])
-
-  const categoryNames: Record<Category, string> = {
-    spirits: '🥃 Spirits',
-    liqueurs: '🍋 Liqueurs',
-    mixers: '🧊 Mixers',
-    garnishes: '🌿 Garnishes'
-  }
-
-  const getCategoryItems = () => items
-
-  const addItem = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
     if (!newItemName.trim() || !quantityInput) return
     
     const newItem: ItemType = {
@@ -57,34 +40,137 @@ export default function Inventory() {
       name: newItemName,
       description: newItemDesc,
       quantity: parseFloat(quantityInput),
-      unit: 'ml'
+      unit: 'ml',
+      category
     }
     
-    setItems(prev => [...prev, newItem])
+    onAddItem(newItem)
     setNewItemName('')
     setNewItemDesc('')
     setQuantityInput('')
+  }
+
+  return (
+    <div className="mb-8 p-4 bg-gradient-to-br from-noir-700/50 to-noir-900/30 backdrop-blur-sm rounded-2xl border border-neon-cyan/20">
+      <h2 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+        <Plus className="w-5 h-5 text-neon-lime" />
+        Add New Item
+      </h2>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <input
+          type="text"
+          placeholder="Item name (e.g., Gin)"
+          value={newItemName}
+          onChange={(e) => setNewItemName(e.target.value)}
+          className="bg-noir-800/50 border border-neon-cyan/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-neon-lime/50 transition-colors"
+        />
+        <input
+          type="text"
+          placeholder="Description (optional)"
+          value={newItemDesc}
+          onChange={(e) => setNewItemDesc(e.target.value)}
+          className="bg-noir-800/50 border border-neon-cyan/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-neon-lime/50 transition-colors"
+        />
+        <input
+          type="number"
+          placeholder="Quantity (e.g., 750)"
+          value={quantityInput}
+          onChange={(e) => setQuantityInput(e.target.value)}
+          className="bg-noir-800/50 border border-neon-cyan/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-neon-lime/50 transition-colors"
+        />
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value as Category)}
+          className="bg-noir-800/50 border border-neon-cyan/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-neon-lime/50 transition-colors"
+        >
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {categoryNames[cat].icon} {categoryNames[cat].label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          disabled={!newItemName.trim() || !quantityInput}
+          className="bg-gradient-to-r from-neon-cyan to-neon-purple hover:from-neon-lime hover:to-neon-magenta text-white px-6 py-3 rounded-xl font-medium shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+        >
+          <Save className="w-5 h-5" />
+        </button>
+      </form>
+    </div>
+  )
+}
+
+export default function Inventory() {
+  const [activeCategory, setActiveCategory] = useState<Category>('spirits')
+  const [items, setItems] = useState<ItemType[]>([])
+  const [editingId, setEditingId] = useState<number | null>(null)
+
+  useEffect(() => {
+    // Load from session storage (persists across navigation)
+    try {
+      const stored = sessionStorage.getItem('bartenderInventory')
+      if (stored) {
+        const parsed: ItemType[] = JSON.parse(stored)
+        setItems(parsed)
+      }
+    } catch (e) {
+      console.error('Failed to parse inventory:', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('bartenderInventory', JSON.stringify(items))
+    } catch (e) {
+      console.warn('Could not persist inventory:', e)
+    }
+  }, [items])
+
+  const handleAddItem = (newItem: ItemType) => {
+    setItems(prev => [...prev, newItem])
   }
 
   const handleDelete = (id: number) => {
     setItems(prev => prev.filter(item => item.id !== id))
   }
 
+  // Filter items by active category
+  const getCategoryItems = () => {
+    return items.filter(item => ['spirits', 'liqueurs', 'mixers', 'garnishes'].includes(item.category!))
+  }
+
+  // Get items for display (filtered by active category)
+  const getCategoryItemsForDisplay = () => {
+    return items.filter(item => item.category === activeCategory)
+  }
+
+  const getItemsByCategory = (category: Category) => {
+    return items.filter(item => item.category === category)
+  }
+
+  // Determine which categories to show based on what exists in inventory
+  const availableCategories: Category[] = ['spirits', 'liqueurs', 'mixers', 'garnishes']
+
   return (
     <div className="min-h-screen bg-noir-900 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl h-[90vh] bg-noir-800/50 backdrop-blur-xl rounded-3xl border border-neon-cyan/20 overflow-hidden shadow-2xl flex flex-col">
         
-        {/* Header */}
+        {/* Header with Category Filter */}
         <div className="p-6 bg-gradient-to-r from-noir-900 via-noir-800 to-noir-900 border-b border-neon-cyan/10">
-          <h1 className="text-3xl font-light tracking-wider text-white mb-2">
-            📦 Inventory <span className="font-mono text-neon-lime/80">M A N A G E R</span>
-          </h1>
-          <p className="text-gray-400 text-sm">Manage your bar supplies in real-time</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-light tracking-wider text-white mb-2">
+                📦 Inventory <span className="font-mono text-neon-lime/80">M A N A G E R</span> <span className="text-sm bg-neon-cyan/10 px-2 py-1 rounded-full ml-2">{activeCategory.toUpperCase()}</span>
+              </h1>
+              <p className="text-gray-400 text-sm">Manage your bar supplies in real-time</p>
+            </div>
+          </div>
         </div>
 
-        {/* Category Tabs */}
-        <div className="flex gap-2 px-6 bg-noir-900 border-b border-neon-cyan/10 overflow-x-auto">
-          {categories.map((cat) => (
+        {/* Navigation Bar with Category Tabs */}
+        <div className="flex flex-wrap gap-2 px-6 bg-noir-900 border-b border-neon-cyan/10 overflow-x-auto">
+          {availableCategories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -94,57 +180,20 @@ export default function Inventory() {
                   : 'bg-noir-700 text-gray-400 hover:bg-noir-600 hover:text-gray-200'
               }`}
             >
-              {categoryNames[cat]}
+              {categoryNames[cat].icon} {categoryNames[cat].label} ({getItemsByCategory(cat).length})
             </button>
           ))}
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6">
-          
-          {/* Add Item Card - only show in spirits tab for demo */}
-          {activeCategory === 'spirits' && (
-            <div className="mb-8 p-4 bg-gradient-to-br from-noir-700/50 to-noir-900/30 backdrop-blur-sm rounded-2xl border border-neon-cyan/20">
-              <h2 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                <Plus className="w-5 h-5 text-neon-lime" />
-                Add New Item
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <input
-                  type="text"
-                  placeholder="Item name (e.g., Elderflower Liqueur)"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="bg-noir-800/50 border border-neon-cyan/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-neon-lime/50 transition-colors"
-                />
-                <input
-                  type="text"
-                  placeholder="Description (optional)"
-                  value={newItemDesc}
-                  onChange={(e) => setNewItemDesc(e.target.value)}
-                  className="bg-noir-800/50 border border-neon-cyan/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-neon-lime/50 transition-colors"
-                />
-                <input
-                  type="number"
-                  placeholder="Quantity (e.g., 750)"
-                  value={quantityInput}
-                  onChange={(e) => setQuantityInput(e.target.value)}
-                  className="bg-noir-800/50 border border-neon-cyan/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-neon-lime/50 transition-colors"
-                />
-                <button
-                  onClick={addItem}
-                  disabled={!newItemName.trim() || !quantityInput}
-                  className="bg-gradient-to-r from-neon-cyan to-neon-purple hover:from-neon-lime hover:to-neon-magenta text-white px-6 py-3 rounded-xl font-medium shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-                >
-                  <Save className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Add Item Card */}
+        <div className="px-6 pb-4">  
+          <AddItemForm onAddItem={handleAddItem} />
+        </div>
 
-          {/* Items Grid */}
+        {/* Items Grid - Filtered by Active Category */}
+        <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {getCategoryItems().map((item) => (
+            {getCategoryItemsForDisplay().map((item) => (
               <div
                 key={item.id}
                 className={`p-4 backdrop-blur-sm rounded-xl border transition-all hover:border-neon-lime/50 ${
@@ -168,17 +217,20 @@ export default function Inventory() {
                     </div>
                     <input
                       type="number"
-                      value={quantityInput || item.quantity}
-                      onChange={(e) => setQuantityInput(e.target.value)}
+                      value={item.quantity}
+                      onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? {...i, quantity: parseFloat(e.target.value || '0')} : i))}
                       className="w-full bg-noir-800/50 border border-neon-purple/40 rounded px-3 py-2 text-white focus:outline-none focus:border-neon-lime/50"
                     />
-                    <div className="flex justify-end gap-2 mt-2">
-                      <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-white px-3 py-1 rounded-lg text-sm font-medium">
-                        Delete
-                      </button>
-                      <button onClick={() => setEditingId(null)} className="text-neon-lime hover:text-white px-3 py-1 rounded-lg text-sm font-medium">
-                        Save
-                      </button>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-sm text-gray-400">{item.unit}</span>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleDelete(item.id)} className="text-red-400 hover:text-white px-3 py-1 rounded-lg text-sm font-medium">
+                          Delete
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="text-neon-lime hover:text-white px-3 py-1 rounded-lg text-sm font-medium">
+                          Save
+                        </button>
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -225,13 +277,12 @@ export default function Inventory() {
           </div>
 
           {/* Empty State */}
-          {getCategoryItems().length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No items in this category yet</p>
-              <p className="text-gray-600 text-sm mt-2">Add your first {categoryNames[activeCategory].split(' ')[1]} above!</p>
+          {getCategoryItemsForDisplay().length === 0 && (
+            <div className="text-center py-12 border-2 border-dashed border-neon-cyan/20 rounded-xl">
+              <p className="text-gray-500 text-lg">No items in {categoryNames[activeCategory].label} yet</p>
+              <p className="text-gray-600 text-sm mt-2">Use the form above to add your first {categoryNames[activeCategory].label.toLowerCase()}!</p>
             </div>
           )}
-
         </div>
       </div>
     </div>
