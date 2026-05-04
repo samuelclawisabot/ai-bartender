@@ -169,8 +169,6 @@ export default async function handler(
         : `🍸 *Speakeasy Adventures*\n\n**From Our Bar:**\n- Classic cocktails with what we have\n\n**Missing Item Adventures:**\n*(I can suggest some amazing drinks if we grab these 1-2 items)*\n- A proper martini (needs vermouth)\n- Old fashioned (needs bitters)\n\n*Let me know what you'd like to try!*`
       
       return res.status(200).json({ success: true, message: mockResponse })
-      
-      return res.status(200).json({ success: true, message: mockResponse })
     }
 
     // Build inventory string that will be injected into the system prompt
