@@ -133,8 +133,8 @@ export default async function handler(
 
     const systemMode = mode === 'strict' ? createStrictPrompt(inventory, message) : createDiscoveryPrompt(inventory, message)
 
-    // Gemini API call - Using gemini-2.0-flash (available model in v1beta)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+    // Gemini API call - Using gemini-3-flash-preview (available model in v1beta)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`
     
     const response = await fetch(url, {
       method: 'POST',
